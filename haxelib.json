@@ -1,0 +1,11 @@
+{ "name"        : "flixel-dj"
+, "description" : "A multi-track and multi-channel music manager for HaxeFlixel."
+, "version"     : "0.0.0"
+, "releasenote" : "Initial release"
+, "url"         : "https://github.com/Geokureli/flixel-dj"
+, "classPath"   : "lib"
+, "license"     : "MIT"
+, "tags"        : ["flixel", "input", "gamepad", "controls"]
+, "contributors": ["GeoKureli"]
+, "dependencies": { "flixel": "" }
+}
