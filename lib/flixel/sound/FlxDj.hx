@@ -180,9 +180,10 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 			final prevTrack = assertGet(current);
 			if (current == id)
 			{
-				FlxG.log.warn('Already playing $id, cannot fade to self');
 				if (forceRestart)
 					prevTrack.stop();
+				else
+					FlxG.log.warn('Already playing $id, cannot fade to self');
 			}
 			else if (prevTrack.playing)
 				prevTrack.fadeOut(fadeTime, ()->prevTrack.pause());
