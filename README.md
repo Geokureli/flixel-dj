@@ -77,5 +77,9 @@ FlxTimer.wait(20, ()->dj.fadeTrackTo("Fresh-Erect", 0.5));
 Tracks do not need to be managed by DJ, they can be created, played, faded in and out and paused
 individually.
 
+## Acknowledgements
+"Music Box" sample music was created and graciously provided, for free by [ConnorGrail](https://connorgrail.com/)
+
 ## TODO:
+- [ ] Add second, license-free track to the sample
 - [ ] Change `FlxDjTrack` to `FlxMultiChannelSound` which extends `FlxSound`
