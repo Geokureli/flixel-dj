@@ -3,8 +3,9 @@ package flixel.sound;
 import flixel.sound.FlxSoundGroup;
 import flixel.system.FlxAssets.FlxSoundAsset;
 import flixel.tweens.FlxTween;
+using flixel.util.NullUtil;
 
-
+@:nullSafety(Strict)
 class FlxDjChannelRaw extends FlxSound
 {
 	public final syncMode:FlxDjSyncMode;
@@ -32,23 +33,16 @@ class FlxDjChannelRaw extends FlxSound
 		#end
 	}
 	
-	/**
-	 * Converts a callback to a tween callback
-	 */
-	inline function callbackHelper(callback:Null<()->Void>):TweenOptions
-	{
-		return callback == null ? null : { onComplete: (_)->callback() };
-	}
-	
 	public function fadeTo(duration:Float, volume:Float, ?onComplete:()->Void)
 	{
 		if (fadeTween != null)
 			fadeTween.cancel();
 			
-		fadeTween = FlxTween.num(this.volume, volume, Math.max(0.0001, duration), callbackHelper(onComplete), volumeTween);
+		fadeTween = FlxTween.num(this.volume, volume, Math.max(0.0001, duration), { onComplete: onComplete.tweenNoArg() }, volumeTween);
 	}
 }
 
+@:nullSafety(Strict)
 @:forward
 abstract FlxDjChannel(FlxDjChannelRaw) from FlxDjChannelRaw to FlxSound
 {

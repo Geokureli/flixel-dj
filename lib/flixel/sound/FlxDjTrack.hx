@@ -4,6 +4,8 @@ import flixel.sound.FlxDjChannel;
 import flixel.sound.FlxSoundGroup;
 import flixel.system.FlxAssets.FlxSoundAsset;
 import flixel.tweens.FlxTween;
+using flixel.util.NullUtil;
+
 
 typedef FlxDjTrack = FlxTypedDjTrack<String>;
 
@@ -11,6 +13,7 @@ typedef FlxDjTrack = FlxTypedDjTrack<String>;
  * A track with multiple channels, all kept in sync. Each channel has it's own volume and
  * can be faded in an out, or channels can be cross-faded from one to another
  */
+@:nullSafety(Strict)
 class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 {
 	/** The group controlling and updating these sounds */
@@ -35,8 +38,17 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 * The position in runtime of the music playback in milliseconds.
 	 * If set while paused, changes only come into effect after a `resume()` call
 	 */
-	public var time(get, null):Float;
+	public var time(get, set):Float;
 	inline function get_time() return main == null ? 0 : main.time;
+	function set_time(value:Float)
+	{
+		if (main != null)
+		{
+			main.time = value;
+			syncChannels();
+		}
+		return 0;
+	}
 	
 	/** The volume of this track, all channels' effective volumes are scaled by this */
 	public var volume(default, set):Float = 1.0;
@@ -198,9 +210,10 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		
 		group.add(channel);
 		channels[id] = channel;
+		channel.pan = this.pan;
 		
 		final wasEmpty = empty;
-		if (wasEmpty || channel.length > main.length)
+		if (wasEmpty || channel.length > assertMain().length)
 			main = channel;
 		
 		if (playing)
@@ -208,7 +221,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 			if (wasEmpty)
 				channel.play(true);
 			else
-				channel.play(true, main.time, main.endTime);
+				channel.play(true, main.sure().time, main.sure().endTime);
 		}
 		else
 			channel.stop();
@@ -218,11 +231,11 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 * Removes and optionally destroys the channel with the given `id`. If the channel has the
 	 * highest `duration`, the track's `duration` will now match the next longest channel
 	 */
-	public function remove(id:ChannelID, destroy = true)
+	public function remove(id:ChannelID, destroy = true):Null<FlxDjChannel>
 	{
 		if (has(id))
 		{
-			final channel = channels[id];
+			final channel = channels[id].sure();
 			removeHelper(id, channel, destroy);
 			if (main == channel)
 			{
@@ -255,13 +268,27 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		return channels.exists(id);
 	}
 	
-	/** Returns the channel with the given`id`, or throws an error, if none exists */
-	inline public function assertGet(id:ChannelID):FlxDjChannel
+	/** Returns the channel with the given `id`, if it exists, otherwise returns `null` */
+	inline public function get(id:ChannelID):Null<FlxDjChannel>
 	{
-		if (has(id))
-			return channels[id];
+		return channels[id];
+	}
+	
+	/** Returns the channel with the given `id`, or throws an error, if none exists */
+	public function assertGet(id:Null<ChannelID>):FlxDjChannel
+	{
+		if (id != null && has(id))
+			return channels[id].sure();
 		
 		throw 'No channel with id: $id';
+	}
+	
+	inline function assertMain():FlxDjChannel
+	{
+		if (main != null)
+			return main;
+		
+		throw 'Track has no main';
 	}
 	
 	override function update(elapsed:Float)
@@ -274,8 +301,14 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		if (!playing)
 			return;
 		
+		syncChannels();
+	}
+	
+	function syncChannels()
+	{
 		for (id => channel in channels)
 		{
+			final main = assertMain();
 			if (channel == main)
 				continue;
 			
@@ -351,8 +384,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		if (fadeTween != null && fadeTween.finished)
 			fadeTween.cancel();
 		
-		final options:TweenOptions = onComplete != null ? { onComplete: (_)->onComplete() } : null;
-		fadeTween = FlxTween.num(this.volume, volume, duration, options, (n)->this.volume = n);
+		fadeTween = FlxTween.num(this.volume, volume, duration, { onComplete: onComplete.tweenNoArg() }, (n)->this.volume = n);
 	}
 	
 	/**

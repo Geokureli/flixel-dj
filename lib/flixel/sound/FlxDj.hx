@@ -3,12 +3,15 @@ package flixel.sound;
 import flixel.sound.FlxSoundGroup;
 import flixel.system.FlxAssets.FlxSoundAsset;
 import flixel.tweens.FlxTween;
+using flixel.util.NullUtil;
+
 
 typedef FlxDj = FlxTypedDj<String>;
 
 /**
  * A multi-track management tool
  */
+@:nullSafety(Strict)
 class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 {
 	public final group:FlxSoundGroup;
@@ -21,7 +24,7 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 	
 	/** The current playing track, if any are plying */
 	public var currentTrack(get, never):Null<FlxDjTrack>;
-	inline function get_currentTrack() return tracks[current];
+	inline function get_currentTrack() return current == null ? null : tracks[current];
 	
 	/**
 	 * Creates a new DJ
@@ -57,10 +60,10 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 	}
 	
 	/** Returns the track with the given`id`, or throws an error, if none exists */
-	public function assertGet(id:TrackID):FlxDjTrack
+	public function assertGet(id:Null<TrackID>):FlxDjTrack
 	{
-		if (has(id))
-			return tracks[id];
+		if (id != null && has(id))
+			return tracks[id].sure();
 		
 		throw 'No track with id: $id';
 	}
