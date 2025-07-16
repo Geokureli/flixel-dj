@@ -67,7 +67,7 @@ class PlayState extends flixel.FlxState
 		final dj = new FlxDj();
 		FlxG.plugins.addPlugin(dj);
 		
-		final margin = 50;
+		final margin = 35;
 		
 		final track1 = new FlxTypedDjTrack<ChannelID>();
 		dj.add(MUSIC_BOX, track1);
@@ -118,7 +118,7 @@ class PlayState extends flixel.FlxState
 		// fade controller
 		fadeInfo = new FlxText('Fade time [L/R arrows]: ${ChannelUI.fadeTime}');
 		fadeInfo.screenCenter(X);
-		fadeInfo.y = musicBox.y + musicBox.height;
+		fadeInfo.y = musicBox.y + musicBox.height + 20;
 		add(fadeInfo);
 	}
 	
@@ -173,7 +173,7 @@ class TrackUI extends FlxSpriteContainer
 		add(playBtn);
 		
 		final restartBtn = new FlxButton(0, y, "Restart", onRestart);
-		restartBtn.x = playBtn.x + playBtn.width;
+		restartBtn.x = playBtn.x + playBtn.width + ChannelUI.BUTTON_GAP;
 		label.y = restartBtn.y + (restartBtn.height - label.height) / 2;
 		add(restartBtn);
 		
@@ -195,7 +195,7 @@ class TrackUI extends FlxSpriteContainer
 		add(allOnBtn);
 		
 		final allOffBtn = new FlxButton(0, y, "All off", allOffClick);
-		allOffBtn.x = allOnBtn.x + allOnBtn.width;
+		allOffBtn.x = allOnBtn.x + allOnBtn.width + ChannelUI.BUTTON_GAP;
 		add(allOffBtn);
 		
 		y += allOnBtn.height + gap;
@@ -264,7 +264,8 @@ class TrackUI extends FlxSpriteContainer
 
 class ChannelUI extends FlxSpriteContainer
 {
-	static public inline var LABEL_WIDTH = 75;
+	static public inline var LABEL_WIDTH = 100;
+	static public inline var BUTTON_GAP = 4;
 	static public var fadeTime = 0.25;
 	
 	public final label:FlxText;
@@ -287,7 +288,7 @@ class ChannelUI extends FlxSpriteContainer
 				track.fadeChannelOut(id, fadeTime);
 		});
 		
-		focusBtn = new FlxButton(toggleBtn.x + toggleBtn.width, 0, "focus", ()->track.fadeChannelFocus(id, fadeTime));
+		focusBtn = new FlxButton(toggleBtn.x + toggleBtn.width + BUTTON_GAP, 0, "focus", ()->track.fadeChannelFocus(id, fadeTime));
 		
 		label.y = toggleBtn.y + (toggleBtn.height - label.height) / 2;
 		add(label);
