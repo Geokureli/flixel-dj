@@ -2,3 +2,5 @@ export
 .haxelib
 .DS_Store
 flixel-dj.zip
+// For testing with certain unlicensed music
+swords/

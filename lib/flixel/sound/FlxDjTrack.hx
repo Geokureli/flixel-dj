@@ -35,14 +35,15 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 * The position in runtime of the music playback in milliseconds.
 	 * If set while paused, changes only come into effect after a `resume()` call
 	 */
-	public var time(default, null):Bool;
+	public var time(get, null):Float;
+	inline function get_time() return main == null ? 0 : main.time;
 	
 	/** The volume of this track, all channels' effective volumes are scaled by this */
 	public var volume(default, set):Float = 1.0;
 	function set_volume(value:Float):Float
 	{
 		this.volume = value;
-		for (channel in byId)
+		for (channel in channels)
 			@:privateAccess
 			channel.updateTransform();
 		
@@ -53,7 +54,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	function set_pan(value:Float):Float
 	{
 		this.pan = value;
-		for (channel in byId)
+		for (channel in channels)
 			channel.pan = value;
 		
 		return volume;
@@ -64,23 +65,23 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	function set_pitch(value:Float):Float
 	{
 		this.pitch = value;
-		for (channel in byId)
+		for (channel in channels)
 			channel.pitch = value;
 		
 		return volume;
 	}
 	#end
 	
-	final byId = new Map<ChannelID, FlxDjChannel>();
+	public final channels = new Map<ChannelID, FlxDjChannel>();
+	
 	var main:Null<FlxDjChannel> = null;
 	var fadeTween:Null<FlxTween> = null;
 	
 	/**
-	 * Creates a new DJ
+	 * Creates a new track
 	 * 
-	 * @param   group     The group containing all these sounds, if `null`,
-	 *                    `FlxG.sound.defaultMusicGroup` is used
-	 * @param   autoPlay  whether to start playing the sound, now
+	 * @param   group  The group containing all these sounds, if `null`,
+	 *                 `FlxG.sound.defaultMusicGroup` is used
 	 */
 	public function new (?group:FlxSoundGroup)
 	{
@@ -97,31 +98,28 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	}
 	
 	/**
-	 * Removes and destroys all channels
+	 * Removes and optionally destroys all channels
 	 */
-	public function clear()
+	public function clear(destroy = true)
 	{
 		playing = false;
 		
 		main = null;
-		for (channel in byId)
-		{
-			channel.destroy();
-			group.remove(channel);
-		}
+		for (id => channel in channels)
+			removeHelper(id, channel, destroy);
 	}
 	
 	/**
 	 * Starts or resumes the track and all of its channels
 	 * 
-	 * @param   forceRestart  If true the time it set to the beginning
+	 * @param   forceRestart  Whether the new track should restart or resume
 	 * @param   startTime     Optional way to set the track's time, in milliseconds, if restarting
 	 * @param   endTime       When to loop back to the start, in milliseconds
 	 */
 	public function play(forceRestart = false, startTime = 0.0, ?endTime)
 	{
 		playing = true;
-		for(channel in byId)
+		for(channel in channels)
 			channel.play(forceRestart, startTime, endTime);
 	}
 	
@@ -130,7 +128,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	{
 		playing = true;
 		
-		for(channel in byId)
+		for(channel in channels)
 			channel.resume();
 	}
 	
@@ -138,7 +136,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	public function pause()
 	{
 		playing = false;
-		for(channel in byId)
+		for(channel in channels)
 			channel.pause();
 	}
 	
@@ -146,7 +144,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	public function stop()
 	{
 		playing = false;
-		for(channel in byId)
+		for(channel in channels)
 			channel.stop();
 	}
 	
@@ -154,13 +152,13 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 * The primary method of adding full-length channels to this track, if a channel already
 	 * exists with the given `id`, it is removed and destroyed.
 	 * 
-	 * @param   id             Lookup id for the channel, used for fading in and out, and removing
+	 * @param   id             The lookup id, to control this channel
 	 * @param   embeddedSound  A asset string or sound object for the desired channel sound
 	 * @param   volume         How loud this track will be
 	 */
 	public function add(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0)
 	{
-		addHelper(id, embeddedSound, volume, ONCE);
+		return addHelper(id, embeddedSound, volume, ONCE);
 	}
 	
 	/**
@@ -174,14 +172,14 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 */
 	public function addSubLoop(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, ?endTime:Float)
 	{
-		addHelper(id, embeddedSound, volume, LOOP(endTime));
+		return addHelper(id, embeddedSound, volume, LOOP(endTime));
 	}
 	
 	inline function addHelper(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, syncMode = ONCE)
 	{
 		final channel = new FlxDjChannel(cast this, embeddedSound, syncMode);
 		channel.volume = volume;
-		addChannel(id, channel);
+		return addChannel(id, channel);
 	}
 	
 	/**
@@ -199,7 +197,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 			remove(id);
 		
 		group.add(channel);
-		byId[id] = channel;
+		channels[id] = channel;
 		
 		final wasEmpty = empty;
 		if (wasEmpty || channel.length > main.length)
@@ -217,57 +215,66 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	}
 	
 	/**
-	 * Removes and destroys the channel with the given `id`. If the channel has the highest
-	 * `duration`, the track's `duration` will now match the next longest channel
+	 * Removes and optionally destroys the channel with the given `id`. If the channel has the
+	 * highest `duration`, the track's `duration` will now match the next longest channel
 	 */
-	public function remove(id:ChannelID)
+	public function remove(id:ChannelID, destroy = true)
 	{
 		if (has(id))
 		{
-			final channel = byId[id];
-			group.remove(channel);
-			byId.remove(id);
-			channel.destroy();
-			
+			final channel = channels[id];
+			removeHelper(id, channel, destroy);
 			if (main == channel)
 			{
 				// Select new main
-				for (channel in byId)
+				for (channel in channels)
 				{
 					if (main == null || channel.length > main.length)
 						main == channel;
 				}
 			}
+			
+			return channel;
 		}
-		else
-			FlxG.log.warn('No channel with id: $id');
+		
+		FlxG.log.warn('No channel with id: $id');
+		return null;
+	}
+	
+	function removeHelper(id:ChannelID, channel:FlxDjChannel, destroy:Bool)
+	{
+		group.remove(channel);
+		channels.remove(id);
+		if (destroy)
+			channel.destroy();
 	}
 	
 	/** Whether the track contains a channel with the target `id` */
 	inline public function has(id:ChannelID)
 	{
-		return byId.exists(id);
+		return channels.exists(id);
 	}
 	
-	inline function assert(id:ChannelID)
+	/** Returns the channel with the given`id`, or throws an error, if none exists */
+	inline public function assertGet(id:ChannelID):FlxDjChannel
 	{
-		if (!has(id))
-			throw 'No channel with id: $id';
+		if (has(id))
+			return channels[id];
 		
-		return byId[id];
+		throw 'No channel with id: $id';
 	}
 	
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
 		
-		for (channel in byId)
+		for (channel in channels)
 			channel.update(elapsed);
 		
 		if (!playing)
 			return;
 		
-		for (id => channel in byId)
+		for (id => channel in channels)
 		{
 			if (channel == main)
 				continue;
@@ -298,7 +305,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 */
 	public function getChannelVolume(id:ChannelID)
 	{
-		return assert(id).volume;
+		return assertGet(id).volume;
 	}
 	
 	/**
@@ -307,7 +314,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 */
 	public function setChannelVolume(id:ChannelID, volume:Float)
 	{
-		assert(id).volume = volume;
+		assertGet(id).volume = volume;
 	}
 	
 	/**
@@ -341,14 +348,11 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 */
 	public function fadeTo(duration:Float, volume:Float, ?onComplete:()->Void)
 	{
-		if (!playing)
-			play();
-		
 		if (fadeTween != null && fadeTween.finished)
 			fadeTween.cancel();
 		
 		final options:TweenOptions = onComplete != null ? { onComplete: (_)->onComplete() } : null;
-		fadeTween = FlxTween.num(this.volume, volume, duration, options);
+		fadeTween = FlxTween.num(this.volume, volume, duration, options, (n)->this.volume = n);
 	}
 	
 	/**
@@ -385,10 +389,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 */
 	public function fadeChannelTo(id:ChannelID, duration:Float, volume:Float, ?onComplete:()->Void)
 	{
-		if (!playing)
-			play();
-		
-		assert(id).fadeTo(duration, volume, onComplete);
+		assertGet(id).fadeTo(duration, volume, onComplete);
 	}
 	
 	/**
@@ -400,9 +401,9 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	 */
 	public function fadeChannelFocus(id:ChannelID, duration:Float, volume:Float = 1.0, ?onComplete:()->Void)
 	{
-		final target = assert(id);
+		final target = assertGet(id);
 		target.fadeTo(duration, volume, onComplete);
-		for (sound in byId)
+		for (sound in channels)
 		{
 			if (sound != target && sound.volume > 0.0)
 				sound.fadeTo(duration, 0);
@@ -413,6 +414,6 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	
 	override function toString():String
 	{
-		return 'FlxDj: [${[for (id=>channel in byId) '$id => $channel']}]';
+		return 'FlxDj: [${[for (id=>channel in channels) '$id => $channel']}]';
 	}
 }
