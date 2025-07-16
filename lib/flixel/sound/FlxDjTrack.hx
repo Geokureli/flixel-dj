@@ -72,6 +72,16 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		return volume;
 	}
 	
+	public var persist(default, set):Float = false;
+	function set_persist(value:Float):Float
+	{
+		this.persist = value;
+		for (channel in channels)
+			channel.persist = value;
+		
+		return volume;
+	}
+	
 	#if FLX_PITCH
 	public var pitch(default, set):Float = 0.0;
 	function set_pitch(value:Float):Float
@@ -211,6 +221,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		group.add(channel);
 		channels[id] = channel;
 		channel.pan = this.pan;
+		channel.persist = this.persist;
 		
 		final wasEmpty = empty;
 		if (wasEmpty || channel.length > assertMain().length)
