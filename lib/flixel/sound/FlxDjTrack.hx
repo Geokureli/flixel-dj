@@ -69,17 +69,17 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		for (channel in channels)
 			channel.pan = value;
 		
-		return volume;
+		return value;
 	}
 	
-	public var persist(default, set):Float = false;
-	function set_persist(value:Float):Float
+	public var persist(default, set):Bool = false;
+	function set_persist(value:Bool):Bool
 	{
 		this.persist = value;
 		for (channel in channels)
 			channel.persist = value;
 		
-		return volume;
+		return value;
 	}
 	
 	#if FLX_PITCH
@@ -90,7 +90,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		for (channel in channels)
 			channel.pitch = value;
 		
-		return volume;
+		return value;
 	}
 	#end
 	
