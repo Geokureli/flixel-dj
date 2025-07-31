@@ -9,11 +9,12 @@ using flixel.util.NullUtil;
 class FlxDjChannelRaw extends FlxSound
 {
 	public final syncMode:FlxDjSyncMode;
-	final track:FlxDjTrack;
+	// final parent:FlxSound;
+	final parent:FlxDjTrack;
 	
-	public function new (track, embeddedSound, syncMode)
+	public function new (parent, embeddedSound, syncMode)
 	{
-		this.track = track;
+		this.parent = parent;
 		this.syncMode = syncMode;
 		super();
 		loadEmbedded(embeddedSound, true);
@@ -21,7 +22,7 @@ class FlxDjChannelRaw extends FlxSound
 	
 	override function calcTransformVolume():Float
 	{
-		final volume = (group != null ? group.getVolume() : 1.0) * track.volume * _volume * _volumeAdjust;
+		final volume = (group != null ? group.getVolume() : 1.0) * parent.volume * _volume * _volumeAdjust;
 		
 		#if FLX_SOUND_SYSTEM
 		if (FlxG.sound.muted)
