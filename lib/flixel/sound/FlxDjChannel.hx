@@ -1,7 +1,8 @@
 package flixel.sound;
 
+import flixel.sound.FlxDjTrack;
 import flixel.sound.FlxSoundGroup;
-import flixel.system.FlxAssets.FlxSoundAsset;
+import flixel.system.FlxAssets;
 import flixel.tweens.FlxTween;
 using flixel.util.NullUtil;
 
@@ -9,8 +10,7 @@ using flixel.util.NullUtil;
 class FlxDjChannelRaw extends FlxSound
 {
 	public final syncMode:FlxDjSyncMode;
-	// final parent:FlxSound;
-	final parent:FlxDjTrack;
+	final parent:IChannelParent;
 	
 	public function new (parent, embeddedSound, syncMode)
 	{

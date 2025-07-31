@@ -9,12 +9,17 @@ using flixel.util.NullUtil;
 
 typedef FlxDjTrack = FlxTypedDjTrack<String>;
 
+interface IChannelParent
+{
+	public var volume(get, set):Float;
+}
+
 /**
  * A track with multiple channels, all kept in sync. Each channel has it's own volume and
  * can be faded in an out, or channels can be cross-faded from one to another
  */
 @:nullSafety(Strict)
-class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
+class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChannelParent
 {
 	/** The group controlling and updating these sounds */
 	final group:FlxSoundGroup;
@@ -50,11 +55,15 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		return 0;
 	}
 	
+	var _volume:Float = 1.0;
+	
 	/** The volume of this track, all channels' effective volumes are scaled by this */
-	public var volume(default, set):Float = 1.0;
+	public var volume(get, set):Float;
+	function get_volume():Float { return _volume; }
+	
 	function set_volume(value:Float):Float
 	{
-		this.volume = value;
+		_volume = value;
 		for (channel in channels)
 			@:privateAccess
 			channel.updateTransform();

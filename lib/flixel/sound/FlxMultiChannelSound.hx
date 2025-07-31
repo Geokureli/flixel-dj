@@ -16,7 +16,7 @@ typedef FlxMultiChannelSound = FlxTypedMultiChannelSound<String>;
  * can be faded in an out, or channels can be cross-faded from one to another
  */
 @:nullSafety(Strict)
-class FlxTypedMultiChannelSound<ChannelID:String> extends FlxSound
+class FlxTypedMultiChannelSound<ChannelID:String> extends FlxSound implements IChannelParent
 {
 	/** Whether or not the sound is currently playing */
 	public var playing(default, null):Bool = false;
