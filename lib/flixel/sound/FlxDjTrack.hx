@@ -69,17 +69,17 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		for (channel in channels)
 			channel.pan = value;
 		
-		return volume;
+		return value;
 	}
 	
-	public var persist(default, set):Float = false;
-	function set_persist(value:Float):Float
+	public var persist(default, set):Bool = false;
+	function set_persist(value:Bool):Bool
 	{
 		this.persist = value;
 		for (channel in channels)
 			channel.persist = value;
 		
-		return volume;
+		return value;
 	}
 	
 	#if FLX_PITCH
@@ -90,7 +90,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		for (channel in channels)
 			channel.pitch = value;
 		
-		return volume;
+		return value;
 	}
 	#end
 	
@@ -197,7 +197,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 		return addHelper(id, embeddedSound, volume, LOOP(endTime));
 	}
 	
-	inline function addHelper(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, syncMode = ONCE)
+	function addHelper(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, syncMode = ONCE)
 	{
 		final channel = new FlxDjChannel(cast this, embeddedSound, syncMode);
 		channel.volume = volume;
@@ -246,19 +246,19 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic
 	{
 		if (has(id))
 		{
-			final channel = channels[id].sure();
-			removeHelper(id, channel, destroy);
-			if (main == channel)
+			final exChannel = channels[id].sure();
+			removeHelper(id, exChannel, destroy);
+			if (main == exChannel)
 			{
 				// Select new main
 				for (channel in channels)
 				{
 					if (main == null || channel.length > main.length)
-						main == channel;
+						main = channel;
 				}
 			}
 			
-			return channel;
+			return exChannel;
 		}
 		
 		FlxG.log.warn('No channel with id: $id');
