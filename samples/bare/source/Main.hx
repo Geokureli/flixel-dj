@@ -58,13 +58,14 @@ class PlayState extends flixel.FlxState
 	var swords:TrackUI;
 	
 	var fadeInfo:FlxText;
+	var dj:FlxDj;
 	
 	override function create()
 	{
 		super.create();
 		FlxG.camera.bgColor = 0xFF6699FF;
 		
-		final dj = new FlxDj();
+		dj = new FlxDj();
 		FlxG.plugins.addPlugin(dj);
 		
 		final margin = 35;
@@ -81,11 +82,6 @@ class PlayState extends flixel.FlxState
 		
 		for (channel in ChannelID.musicBoxLoop)
 			track1.addSubLoop(channel, 'assets/music box/sounds/${channel.toLowerCase()}.wav', 0.0, 500);
-		
-		function playTrack(id)
-		{
-			dj.fadeTrackTo(id, ChannelUI.fadeTime, false);
-		}
 		
 		function restartTrack(id)
 		{
@@ -143,6 +139,21 @@ class PlayState extends flixel.FlxState
 			trace('MusicBox: ${musicBox.track}');
 			trace('Swords: ${swords.track}');
 		}
+		
+		if (FlxG.keys.justPressed.LEFT)
+			playTrack(MUSIC_BOX);
+		
+		if (FlxG.keys.justPressed.RIGHT)
+			playTrack(SWORDS);
+	}
+	
+	function playTrack(id:TrackID)
+	{
+		if (dj.current == null)
+			dj.play(id);
+		
+		if (dj.current != id)
+			dj.fadeTrackTo(id, ChannelUI.fadeTime);
 	}
 }
 

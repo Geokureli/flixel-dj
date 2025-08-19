@@ -3,6 +3,7 @@ package flixel.sound;
 import flixel.sound.FlxSoundGroup;
 import flixel.system.FlxAssets.FlxSoundAsset;
 import flixel.tweens.FlxTween;
+import flixel.util.FlxSignal;
 using flixel.util.NullUtil;
 
 
@@ -26,6 +27,9 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 	public var currentTrack(get, never):Null<FlxDjTrack>;
 	inline function get_currentTrack() return current == null ? null : tracks[current];
 	
+	public final preTrackChange = new FlxTypedSignal<(from:Null<TrackID>, to:Null<TrackID>)->Void>();
+	public final postTrackChange = new FlxTypedSignal<(from:Null<TrackID>, to:Null<TrackID>)->Void>();
+	
 	/**
 	 * Creates a new DJ
 	 * 
@@ -43,14 +47,34 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 		super.destroy();
 		
 		clear(true);
+		
+		preTrackChange.removeAll();
+		postTrackChange.removeAll();
 	}
 	
 	/** Removes and optionally destroys all channels */
 	public function clear(destroy = true)
 	{
-		current = null;
+		clearCurrentTrack();
+		
 		for (id => track in tracks)
 			removeHelper(id, track, destroy);
+	}
+	
+	public function clearCurrentTrack()
+	{
+		final prev = current;
+		if (prev != null)
+		{
+			final prevTrack = assertGet(prev);
+			preTrackChange.dispatch(prev, null);
+			prevTrack.stop();
+		}
+		
+		current = null;
+		
+		if (prev != null)
+			preTrackChange.dispatch(prev, null);
 	}
 	
 	/** Whether the track contains a channel with the target `id` */
@@ -65,7 +89,7 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 		if (id != null && has(id))
 			return tracks[id].sure();
 		
-		throw 'No track with id: $id';
+		throw 'No track with id: $id, tracks: ${[for (id in tracks.keys()) id]}';
 	}
 	
 	/**
@@ -90,7 +114,7 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 		if (track != null)
 		{
 			if (id == current)
-				current = null;
+				clearCurrentTrack();
 			
 			return removeHelper(id, track, destroy);
 		}
@@ -118,6 +142,39 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 		}
 	}
 	
+	public function addAndPlayEmbedded(id:TrackID, embeddedSound:FlxSoundAsset, volume = 1.0, forceRestart = false, startTime = 0.0, ?endTime:Float, autoDestroy = true)
+	{
+		if (has(id) == false)
+		{
+			final track = new FlxDjTrack(group);
+			track.autoDestroy = autoDestroy;
+			track.add("default", embeddedSound);
+			add(id, track);
+		}
+		
+		final track = assertGet(id);
+		track.setChannelVolume("default", volume);
+		play(id, forceRestart, startTime, endTime);
+		return track;
+	}
+	
+	public function addAndFadeToEmbedded(id:TrackID, embeddedSound:FlxSoundAsset, fadeTime:Float, volume = 1.0, forceRestart = false, startTime = 0.0, ?endTime:Float, ?onFade, autoDestroy = true)
+	{
+		if (has(id) == false)
+		{
+			final track = new FlxDjTrack(group);
+			track.autoDestroy = autoDestroy;
+			track.add("default", embeddedSound);
+			add(id, track);
+		}
+		
+		final track = assertGet(id);
+		track.setChannelVolume("default", volume);
+		fadeTrackTo(id, fadeTime, forceRestart, startTime, endTime, onFade);
+		return track;
+	}
+	
+	
 	/**
 	 * Starts or resumes the track, after pausing the previous track
 	 * 
@@ -127,13 +184,17 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 	 */
 	public function play(id:TrackID, forceRestart = false, startTime = 0.0, ?endTime:Float)
 	{
-		final prevTrack = currentTrack;
-		if (prevTrack != null && current != id)
-			prevTrack.pause();
+		if (current != null && current != id)
+			checkAutoDestroy(current, assertGet(current));
 		
+		final prev = current;
 		final track = assertGet(id);
+		preTrackChange.dispatch(prev, id);
+		
 		current = id;
 		track.play(forceRestart, startTime, endTime);
+		
+		postTrackChange.dispatch(prev, id);
 	}
 	
 	/** Stops the current track and all of its channels, setting the time to 0 */
@@ -171,28 +232,59 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 	 * @param forceRestart  Whether the new track should restart or resume
 	 * @param startTime     Optional way to set the track's time, in milliseconds, if restarting
 	 * @param endTime       When to loop back to the start, in milliseconds
-	 * @param onComplete    Called when the cross-fade is complete
+	 * @param onFade        Called when the cross-fade is complete
 	 */
-	public function fadeTrackTo(id:TrackID, fadeTime:Float, forceRestart = false, startTime = 0.0, ?endTime, ?onComplete)
+	public function fadeTrackTo(id:TrackID, fadeTime:Float, forceRestart = false, startTime = 0.0, ?endTime, ?onFade)
 	{
+		final nextTrack = assertGet(id);
 		if (current != null)
 		{
-			final prevTrack = assertGet(current);
-			if (current == id)
+			final prev = current.sure();
+			final prevTrack = assertGet(prev);
+			preTrackChange.dispatch(prev, id);
+			
+			if (prev == id)
 			{
-				if (forceRestart)
-					prevTrack.stop();
-				else
-					FlxG.log.warn('Already playing $id, cannot fade to self');
+				// FlxG.log.warn('Already playing $id, cannot fade to self');
+				throw 'Already playing $id, cannot fade to self';
+				prevTrack.play(forceRestart, startTime, endTime);
+				postTrackChange.dispatch(prev, id);
+				return;
 			}
 			else if (prevTrack.playing)
-				prevTrack.fadeOut(fadeTime, ()->prevTrack.pause());
+			{
+				prevTrack.fadeOut(fadeTime, function ()
+				{
+					postTrackChange.dispatch(prev, id);
+					checkAutoDestroy(prev, prevTrack);
+				});
+			}
+		}
+		else
+		{
+			preTrackChange.dispatch(null, id);
 		}
 		
-		final track = assertGet(id);
 		current = id;
-		track.play(forceRestart, startTime, endTime);
-		track.volume = 0;
-		track.fadeIn(fadeTime, onComplete);
+		nextTrack.play(forceRestart, startTime, endTime);
+		nextTrack.volume = 0;
+		nextTrack.fadeIn(fadeTime, onFade);
+	}
+	
+	/**
+	 * Checks whether the track is set to autoDestroy and destroys it, otherwise pauses it
+	 * 
+	 * @param  id     The ID of the track
+	 * @param  track  The track itself
+	 */
+	function checkAutoDestroy(id:TrackID, track:FlxDjTrack)
+	{
+		if (track.autoDestroy)
+		{
+			track.stop();
+			remove(id);
+		}
+		else
+			track.pause();
 	}
 }

@@ -2,8 +2,9 @@ package flixel.sound;
 
 import flixel.sound.FlxDjChannel;
 import flixel.sound.FlxSoundGroup;
-import flixel.system.FlxAssets.FlxSoundAsset;
+import flixel.system.FlxAssets;
 import flixel.tweens.FlxTween;
+import flixel.util.FlxSignal;
 using flixel.util.NullUtil;
 
 
@@ -33,23 +34,34 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	
 	/** The duration of the track in milliseconds. */
 	public var duration(get, never):Float;
-	inline function get_duration() return main == null ? 0 : main.length;
+	inline function get_duration() return main == null ? 0 : main.sure().length;
 	
 	/** The duration of the track in milliseconds. */
 	public var length(get, never):Float;
-	inline function get_length() return main == null ? 0 : main.length;
+	inline function get_length() return main == null ? 0 : main.sure().length;
+	
+	/**
+	 * Whether this sound should be destroyed when stopped.
+	 * If stopped by a dj, it will also be removed form that dj
+	 */
+	public var autoDestroy:Bool = false;
 	
 	/** 
 	 * The position in runtime of the music playback in milliseconds.
 	 * If set while paused, changes only come into effect after a `resume()` call
 	 */
 	public var time(get, set):Float;
-	inline function get_time() return main == null ? 0 : main.time;
+	inline function get_time() return main == null ? 0 : main.sure().time;
+	
+	public final onMainChange = new FlxTypedSignal<(from:Null<ChannelID>, to:Null<ChannelID>)->Void>();
+	public final preChannelFade = new FlxTypedSignal<(id:ChannelID, from:Float, to:Float)->Void>();
+	public final postChannelFade = new FlxTypedSignal<(id:ChannelID, from:Float, to:Float)->Void>();
+	
 	function set_time(value:Float)
 	{
 		if (main != null)
 		{
-			main.time = value;
+			main.sure().time = value;
 			syncChannels();
 		}
 		return 0;
@@ -105,7 +117,18 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	
 	public final channels = new Map<ChannelID, FlxDjChannel>();
 	
-	var main:Null<FlxDjChannel> = null;
+	var mainID:Null<ChannelID> = null;
+	
+	/**
+	 * The longest channel, used to dictate the "true" time of this track. Any channels that
+	 * stray too far from this will be corrected. Mostly used internally
+	 */
+	public var main(get, never):Null<FlxDjChannel>;
+	inline function get_main()
+	{
+		return mainID == null ? null : get(mainID);
+	}
+	
 	var fadeTween:Null<FlxTween> = null;
 	
 	/**
@@ -135,7 +158,11 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	{
 		playing = false;
 		
-		main = null;
+		onMainChange.removeAll();
+		preChannelFade.removeAll();
+		postChannelFade.removeAll();
+		
+		setMain(null);
 		for (id => channel in channels)
 			removeHelper(id, channel, destroy);
 	}
@@ -177,6 +204,9 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 		playing = false;
 		for(channel in channels)
 			channel.stop();
+		
+		if (autoDestroy)
+			destroy();
 	}
 	
 	/**
@@ -234,7 +264,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 		
 		final wasEmpty = empty;
 		if (wasEmpty || channel.length > assertMain().length)
-			main = channel;
+			setMain(id);
 		
 		if (playing)
 		{
@@ -245,6 +275,13 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 		}
 		else
 			channel.stop();
+	}
+	
+	function setMain(channelID:Null<ChannelID>)
+	{
+		final prev = mainID;
+		mainID = channelID;
+		onMainChange.dispatch(prev, channelID);
 	}
 	
 	/**
@@ -259,12 +296,18 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 			removeHelper(id, exChannel, destroy);
 			if (main == exChannel)
 			{
+				var newMainID:Null<ChannelID> = null;
+				var newMain:Null<FlxDjChannel> = null;
 				// Select new main
-				for (channel in channels)
+				for (channelID => channel in channels)
 				{
-					if (main == null || channel.length > main.length)
-						main = channel;
+					if (newMain == null || channel.length > newMain.length)
+					{
+						newMainID = channelID;
+						newMain = channel;
+					}
 				}
+				setMain(newMainID);
 			}
 			
 			return exChannel;
@@ -306,7 +349,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	inline function assertMain():FlxDjChannel
 	{
 		if (main != null)
-			return main;
+			return main.sure();
 		
 		throw 'Track has no main';
 	}
@@ -326,18 +369,18 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	
 	function syncChannels()
 	{
+		final mainSure:FlxDjChannel = main.sure();
 		for (id => channel in channels)
 		{
-			final main = assertMain();
-			if (channel == main)
+			if (id == mainID)
 				continue;
 			
-			if (main.time <= channel.length)
+			if (mainSure.time <= channel.length)
 			{
 				if (channel.playing)
-					channel.syncTimeTo(main.time);
+					channel.syncTimeTo(mainSure.time);
 				else
-					channel.play(true, main.time, main.endTime);
+					channel.play(true, mainSure.time, mainSure.endTime);
 			}
 			else
 			{
@@ -346,7 +389,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 					case ONCE:
 						channel.pause();
 					case LOOP(end):
-						channel.syncTimeTo(main.time % (end ?? channel.length));
+						channel.syncTimeTo(mainSure.time % (end ?? channel.length));
 				}
 			}
 		}
@@ -373,88 +416,97 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	/**
 	 * Fades this track's volume up to full. If the track isn't playing, `play()` is called
 	 * 
-	 * @param   duration    The time it takes, in seconds to fade the channel
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   duration  The time it takes, in seconds to fade the channel
+	 * @param   onFade    Called when the fade is complete
 	 */
-	inline public function fadeIn(duration:Float, ?onComplete:()->Void)
+	inline public function fadeIn(duration:Float, ?onFade:()->Void)
 	{
-		fadeTo(duration, 1.0, onComplete);
+		fadeTo(duration, 1.0, onFade);
 	}
 	
 	/**
 	 * Fades this track's volume down to zero. If the track isn't playing, `play()` is called
 	 * 
-	 * @param   duration    The time it takes, in seconds to fade the channel
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   duration  The time it takes, in seconds to fade the channel
+	 * @param   onFade    Called when the fade is complete
 	 */
-	inline public function fadeOut(duration:Float, ?onComplete:()->Void)
+	inline public function fadeOut(duration:Float, ?onFade:()->Void)
 	{
-		fadeTo(duration, 0.0, onComplete);
+		fadeTo(duration, 0.0, onFade);
 	}
 	
 	/**
 	 * Fades this track's volume to the desired. If the track isn't playing, `play()` is called
 	 * 
-	 * @param   duration    The time it takes, in seconds to fade the channel
-	 * @param   volume      The desired volume of the track
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   duration  The time it takes, in seconds to fade the channel
+	 * @param   volume    The desired volume of the track
+	 * @param   onFade    Called when the fade is complete
 	 */
-	public function fadeTo(duration:Float, volume:Float, ?onComplete:()->Void)
+	public function fadeTo(duration:Float, volume:Float, ?onFade:()->Void)
 	{
 		if (fadeTween != null && fadeTween.finished)
 			fadeTween.cancel();
 		
-		fadeTween = FlxTween.num(this.volume, volume, duration, { onComplete: onComplete.tweenNoArg() }, (n)->this.volume = n);
+		fadeTween = FlxTween.num(this.volume, volume, duration, { onComplete: onFade.tweenNoArg() }, (n)->this.volume = n);
 	}
 	
 	/**
 	 * Fades the channel's volume up to full
 	 * 
-	 * @param   id          The lookup id of the channel, if no channel matches an error is thrown
-	 * @param   duration    The time it takes, in seconds to fade the channel
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   id        The lookup id of the channel, if no channel matches an error is thrown
+	 * @param   duration  The time it takes, in seconds to fade the channel
+	 * @param   onFade    Called when the fade is complete
 	 */
-	inline public function fadeChannelIn(id:ChannelID, duration:Float, ?onComplete:()->Void)
+	inline public function fadeChannelIn(id:ChannelID, duration:Float, ?onFade:()->Void)
 	{
-		fadeChannelTo(id, duration, 1.0, onComplete);
+		fadeChannelTo(id, duration, 1.0, onFade);
 	}
 	
 	/**
 	 * Fades the channel's volume down to zero
 	 * 
-	 * @param   id          The lookup id of the channel, if no channel matches an error is thrown
-	 * @param   duration    The time it takes, in seconds to fade the channel
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   id        The lookup id of the channel, if no channel matches an error is thrown
+	 * @param   duration  The time it takes, in seconds to fade the channel
+	 * @param   onFade    Called when the fade is complete
 	 */
-	inline public function fadeChannelOut(id:ChannelID, duration:Float, ?onComplete:()->Void)
+	inline public function fadeChannelOut(id:ChannelID, duration:Float, ?onFade:()->Void)
 	{
-		fadeChannelTo(id, duration, 0.0, onComplete);
+		fadeChannelTo(id, duration, 0.0, onFade);
 	}
 	
 	/**
 	 * Fades the channel's volume down to zero
 	 * 
-	 * @param   id          The lookup id of the channel, if no channel matches an error is thrown
-	 * @param   duration    The time it takes, in seconds to fade the channel
-	 * @param   volume      The desired volume of the channel
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   id        The lookup id of the channel, if no channel matches an error is thrown
+	 * @param   duration  The time it takes, in seconds to fade the channel
+	 * @param   volume    The desired volume of the channel
+	 * @param   onFade    Called when the fade is complete
 	 */
-	public function fadeChannelTo(id:ChannelID, duration:Float, volume:Float, ?onComplete:()->Void)
+	public function fadeChannelTo(id:ChannelID, duration:Float, volume:Float, ?onFade:()->Void)
 	{
-		assertGet(id).fadeTo(duration, volume, onComplete);
+		final channel = assertGet(id);
+		final prevVolume = channel.volume;
+		preChannelFade.dispatch(id, prevVolume, volume);
+		channel.fadeTo(duration, volume, function ()
+		{
+			if (onFade != null)
+				onFade.sure();
+			
+			postChannelFade.dispatch(id, prevVolume, volume);
+		});
 	}
 	
 	/**
 	 * Fades all channels' volumes down to zero, while fading this to the target volume
-	 * @param   id          The lookup id of the channel
-	 * @param   duration    The time it takes, in seconds to focus the channel
-	 * @param   volume      The desired volume of the focused channel
-	 * @param   onComplete  Called when the fade is complete
+	 * @param   id        The lookup id of the channel
+	 * @param   duration  The time it takes, in seconds to focus the channel
+	 * @param   volume    The desired volume of the focused channel
+	 * @param   onFade    Called when the fade is complete
 	 */
-	public function fadeChannelFocus(id:ChannelID, duration:Float, volume:Float = 1.0, ?onComplete:()->Void)
+	public function fadeChannelFocus(id:ChannelID, duration:Float, volume:Float = 1.0, ?onFade:()->Void)
 	{
 		final target = assertGet(id);
-		target.fadeTo(duration, volume, onComplete);
+		target.fadeTo(duration, volume, onFade);
 		for (sound in channels)
 		{
 			if (sound != target && sound.volume > 0.0)
