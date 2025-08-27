@@ -12,12 +12,11 @@ class FlxDjChannelRaw extends FlxSound
 	public final syncMode:FlxDjSyncMode;
 	final parent:IChannelParent;
 	
-	public function new (parent, embeddedSound, syncMode)
+	public function new (parent, syncMode)
 	{
 		this.parent = parent;
 		this.syncMode = syncMode;
 		super();
-		loadEmbedded(embeddedSound, true);
 	}
 	
 	override function calcTransformVolume():Float
@@ -58,9 +57,9 @@ abstract FlxDjChannel(FlxDjChannelRaw) from FlxDjChannelRaw to FlxSound
 	
 	inline function set_time(value:Float) return this.time = value;
 	
-	public function new (track, embeddedSound, mode)
+	public function new (track, mode)
 	{
-		this = new FlxDjChannelRaw(track, embeddedSound, mode);
+		this = new FlxDjChannelRaw(track, mode);
 	}
 	
 	public function syncTimeTo(time:Float)

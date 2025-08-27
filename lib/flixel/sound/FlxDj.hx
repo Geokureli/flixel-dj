@@ -245,8 +245,9 @@ class FlxTypedDj<TrackID:String> extends flixel.FlxBasic
 			
 			if (prev == id)
 			{
-				// FlxG.log.warn('Already playing $id, cannot fade to self');
-				throw 'Already playing $id, cannot fade to self';
+				if (forceRestart == false)
+					FlxG.log.warn('Already playing $id, cannot fade to self');
+				
 				prevTrack.play(forceRestart, startTime, endTime);
 				postTrackChange.dispatch(prev, id);
 				return;

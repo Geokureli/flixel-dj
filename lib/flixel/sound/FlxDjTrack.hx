@@ -219,7 +219,7 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	 */
 	public function add(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0)
 	{
-		return addHelper(id, embeddedSound, volume, ONCE);
+		return addHelperEmbedded(id, embeddedSound, volume, ONCE);
 	}
 	
 	/**
@@ -233,12 +233,13 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	 */
 	public function addSubLoop(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, ?endTime:Float)
 	{
-		return addHelper(id, embeddedSound, volume, LOOP(endTime));
+		return addHelperEmbedded(id, embeddedSound, volume, LOOP(endTime));
 	}
 	
-	function addHelper(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, syncMode = ONCE)
+	function addHelperEmbedded(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, syncMode = ONCE)
 	{
-		final channel = new FlxDjChannel(cast this, embeddedSound, syncMode);
+		final channel = new FlxDjChannel(cast this, syncMode);
+		channel.loadEmbedded(embeddedSound, true);
 		channel.volume = volume;
 		return addChannel(id, channel);
 	}
@@ -275,6 +276,8 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 		}
 		else
 			channel.stop();
+		
+		return channel;
 	}
 	
 	function setMain(channelID:Null<ChannelID>)
