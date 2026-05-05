@@ -181,7 +181,11 @@ private class TypedTrackUI<ID:String> extends FlxSpriteContainer
 		trace('Appended $id');
 		// final channel = track.add(id, sound);
 		final channel = new FlxDjChannel(track, LOOP(null));
-		channel.loadByteArray(byteArray);
+		#if (flixel < version("6.2.0"))
+		channel.loadEmbedded(byteArray);
+		#else
+		channel.load(byteArray);
+		#end
 		track.addChannel(id, channel);
 		
 		addChannelUI(0, this.height + gap, id, channel);

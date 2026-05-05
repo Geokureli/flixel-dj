@@ -239,7 +239,11 @@ class FlxTypedDjTrack<ChannelID:String> extends flixel.FlxBasic implements IChan
 	function addHelperEmbedded(id:ChannelID, embeddedSound:FlxSoundAsset, volume = 1.0, syncMode = ONCE)
 	{
 		final channel = new FlxDjChannel(cast this, syncMode);
+		#if (flixel < version("6.2.0"))
 		channel.loadEmbedded(embeddedSound, true);
+		#else
+		channel.load(embeddedSound).setup(1.0, true);
+		#end
 		channel.volume = volume;
 		return addChannel(id, channel);
 	}
